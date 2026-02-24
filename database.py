@@ -1,16 +1,17 @@
 from datetime import datetime
 import os
+import struct
 from dotenv import load_dotenv
-
-from sqlalchemy import URL, Column, DateTime, create_engine
+from azure.identity import DefaultAzureCredential
+from sqlalchemy import URL, Column, DateTime, create_engine, event
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 load_dotenv()
 
+credential = DefaultAzureCredential()
+
 connection_url = URL.create(
     "mssql+pyodbc",
-    username=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
     host=os.getenv("DB_HOST"),
     port=1433,
     database=os.getenv("DB_NAME"),
@@ -22,6 +23,14 @@ connection_url = URL.create(
 )
 
 engine = create_engine(connection_url, echo=True)
+
+@event.listens_for(engine, "do_connect")
+def provide_token(dialect, conn_rec, cargs, cparams):
+    token = credential.get_token("https://database.windows.net/.default")
+    token_bytes = token.token.encode("utf-16-le")
+    token_struct = struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
+    cparams["attrs_before"] = {1256: token_struct}
+
 SessionLocal = sessionmaker(bind=engine)
 
 class Base(DeclarativeBase):
