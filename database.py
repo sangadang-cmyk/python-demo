@@ -8,7 +8,9 @@ from sqlalchemy import Column, DateTime, create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 load_dotenv()
-credential = DefaultAzureCredential()
+credential = DefaultAzureCredential(
+    client_id='d6430b79-a02c-4d59-954f-d8b98956352f',
+)
 
 def get_connection():
     token = credential.get_token("https://database.windows.net/.default")
